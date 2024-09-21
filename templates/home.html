@@ -1,0 +1,32 @@
+{% extends 'base_template.html' %}
+
+
+
+{% block body %}
+<div class="home-content">
+    <h1 align="center">Home Page</h1>
+    <table >
+        <tr>
+            <td>
+                <a href="/ordering" id="link1">Order Page</a>
+            </td>
+        </tr>
+        <tr>
+            <td> Using the currently inputted contract, submit an order to either buy or sell at a certain amount using
+                the Interactive Brokers API and order submission features.
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <a href="/predictions" id="link2">Prediction</a>
+            </td>
+        </tr>
+        <tr>
+            <td> Use Openai's gpt models to predict the outcome of the current selected contract using historical data
+                supplied by the Interactive Brokers API. The data can be optimized by the user for the prediction process.
+            </td>
+        </tr>
+    </table>
+    <a href="/" id="link-back">Back to contract login</a>
+</div>
+{% endblock %}

@@ -1,0 +1,100 @@
+body {
+    font-family: 'Segue UI', 'Tahoma', 'Geneva', 'Verdana', 'sans-serif';
+    margin: 0;
+    padding: 0;
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+}
+
+/* div formatting */
+.contract-info,
+.home-content,
+.ordering-info,
+.prediction-content,
+.completion{
+    max-width: 500px;
+    width: 100%;
+    background-color: #fffaf1;
+    padding: 25px;
+    border-radius: 10px;
+    border: 2px solid green;
+    box-shadow: 0 0 10px rgba(85, 255, 34, 0.5);
+}
+
+.prediction-completion-content{
+    max-width: 700px;
+    width: 100%;
+    background-color: #fffaf1;
+    padding: 25px;
+    border-radius: 10px;
+    border: 2px solid green;
+    box-shadow: 0 0 10px rgba(85, 255, 34, 0.5);
+    margin-top: auto;
+}
+
+
+/* label formatting */
+.contract-info label,
+.prediction-content label,
+.ordering-info label{
+    display: block;
+    margin-bottom: 8px;
+    color: #555;
+}
+
+/* input formatting */
+.contract-info input,
+.ordering-info input,
+.prediction-content input{
+    padding: 12px;
+    width: 100%;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    box-sizing: border-box;
+    border-radius: 4px;
+    margin-bottom: 16px;
+}
+
+/* input hover cosmetics */
+input[type=submit]:hover {
+  background-color: #45a049;
+}
+
+/* Homepage, order-completion links */
+#link1, #link2, #link3 {
+  color: black;
+  font-family: Tahoma;
+  font-size: 20px;
+  text-decoration: underline;
+  text-transform: None;
+}
+
+/* Link back to a page */
+#link-back {
+  color: black;
+  font-family: Tahoma;
+  font-size: 12px;
+  text-decoration: None;
+  text-transform: None;
+}
+
+/* Hover over link */
+a:hover {
+  text-decoration: underline;
+}
+
+/* home page, completion table */
+.home-content table,
+ .completion table{
+  border-collapse: separate;
+  border-spacing: 1em;
+  word-wrap: break word
+  font-family: Tahoma;
+}
+
+
+
+

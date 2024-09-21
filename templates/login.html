@@ -1,0 +1,23 @@
+{% extends 'base_template.html' %}
+
+
+{% block body %}
+<div class="contract-info">
+  <h1 align="center">Contract Page</h1>
+    <form action="/" method="POST">
+      <label for="symbol">Contract Symbol</label>
+      <input type="text" name="symbol" id="symbol"
+             placeholder="Enter the contract" >
+
+      <label for="currency">Contract Currency</label>
+      <input type="text" name="currency" id="currency"
+             placeholder="Enter currency of use" >
+
+      <label for="pexchange">Exchange</label>
+      <input type="text" name="pexchange" id="pexchange"
+             placeholder="Enter exchange for stock" >
+
+      <input type="submit" value="Submit">
+    </form>
+</div>
+{% endblock %}

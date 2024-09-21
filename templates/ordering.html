@@ -1,0 +1,33 @@
+{% extends 'base_template.html' %}
+
+{% block body %}
+<div class="ordering-info">
+    <h1 align="center">Order Info</h1>
+    <form action="/ordering" method="POST">
+
+      <label for="actions">Action</label>
+      <input type="text" name="actions" id="actions"
+             placeholder="Specify whether to buy or sell (BUY/SELL)" >
+
+      <label for="tif">Time of Force</label>
+      <input type="text" name="tif" id="tif"
+             placeholder="Enter tif of order (NA if not applicable)" >
+
+      <label for="orderType">Order Type</label>
+      <input type="text" name="orderType" id="orderType"
+             placeholder="Enter the type of order" >
+
+      <label for="lmtprice">Limit Price</label>
+      <input type="text" name="lmtprice" id="lmtprice"
+             placeholder="Enter limit price (NA if not applicable)">
+
+        <label for="quantity">Quantity</label>
+      <input type="text" name="quantity" id="quantity"
+             placeholder="Enter Quantity of Order" >
+
+      <input type="submit" value="Submit">
+    </form>
+    <a href="/home" id="link-back">Back to home</a>
+</div>
+
+{% endblock %}

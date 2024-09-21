@@ -1,0 +1,16 @@
+{% extends 'base_template.html' %}
+
+{% block body %}
+<div class="prediction-content">
+    <h1 align="center">Trade Prediction Page</h1>
+    <form action="/predictions" method="POST">
+
+        <label for="length">Action</label>
+        <input type="text" name="length" id="length"
+             placeholder="Enter amount of time for data (1W/1M/6M/1Y/2Y)" >
+
+        <input type="submit" value="Submit">
+    </form>
+    <a href="/home" id="link-back">Back to home</a>
+</div>
+{% endblock %}

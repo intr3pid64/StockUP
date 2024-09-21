@@ -1,0 +1,116 @@
+{% extends 'base_template.html' %}
+
+{% block head %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.min.js"></script>
+{% endblock %}
+
+{% block body %}
+<div class="prediction-completion-content">
+  <table>
+        <tr>
+          <td>
+            <h2>{{symbol}}'s History</h2>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            Below is the history for the given stock within the specified time period.
+          </td>
+        </tr>
+
+        <tr>
+            <td>
+                <canvas id="personalizedData" height="400" width="600"></canvas>
+            </td>
+        </tr>
+
+        <tr>
+          <td>
+            <h2>{{symbol}}'s projections</h2>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            Below is the projected prices for the stock over the next seven days.
+          </td>
+        </tr>
+
+        <tr>
+            <td>
+                <canvas id="projectedData" height="400" width="600"></canvas>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <a href="/home" id="link-back">Back to home</a>
+            </td>
+        </tr>
+
+  </table>
+
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const ctx = document.getElementById('personalizedData');
+
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: {{personaldates | safe}},
+      datasets: [{
+        data: {{personaldata | safe}},
+        borderWidth: 1
+      }]
+    },
+    options: {
+      plugins: {
+            legend: {
+                display: false
+            },
+        },elements: {
+                    point:{
+                        radius: 1
+                    }
+                },
+      scales: {
+        y: {
+          beginAtZero: false}}}
+  });
+</script>
+
+<script>
+  const ctx2 = document.getElementById('projectedData');
+
+
+  new Chart(ctx2, {
+    type: 'line',
+    data: {
+      labels: {{gptdates | safe}},
+      datasets: [{
+        data: {{halfclose | safe}},
+        borderWidth: 1
+      },{
+        data: {{projected | safe}},
+        borderWidth: 1
+      }]
+    },
+    options: {
+      spanGaps: true,
+      plugins: {
+            legend: {
+                display: false
+            },
+        },elements: {
+                    point:{
+                        radius: 1
+                    }
+                },
+      scales: {
+        y: {
+          beginAtZero: false}}}
+  });
+</script>
+
+{% endblock %}
