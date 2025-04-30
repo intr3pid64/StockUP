@@ -1,3 +1,9 @@
+"""
+This piece of code was used in StockUp to control the web application framework and direct information to different
+website pages. Flask was used as the application framework, and the user data, historical data were brought through to
+the pages that displayed it to the user.
+"""
+
 import csv
 import threading
 import time
@@ -9,13 +15,13 @@ from flask_sqlalchemy import SQLAlchemy
 from ib_insync import *
 from ibapi.client import *
 from ibapi.wrapper import *
-from openai import OpenAI
 from sqlalchemy import *
+import pandas as pd
 
-# OpenAi API
-client = OpenAI(
-    # this is where the api_key will go
-)
+# Machine learning imports
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import precision_score
+
 
 
 class TradingApp(EClient, EWrapper):
@@ -162,7 +168,7 @@ class TradingApp(EClient, EWrapper):
         self.cancelHistoricalData(reqId)
 
 
-#Flask Set Up
+# Flask Set Up
 flaskapp = Flask(__name__)
 flaskapp.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///contract.db'
 db = SQLAlchemy(flaskapp)
@@ -170,13 +176,13 @@ db = SQLAlchemy(flaskapp)
 flask_thread = threading.Thread(target=flaskapp.run, args=[False])
 flask_thread.start()
 
-#IBApi Threading StartUp
+# IBApi Threading StartUp
 tradeapp = TradingApp()
 tradeapp.connect("127.0.0.1", 7497, 0)
 trading_thread = threading.Thread(target=tradeapp.run)
 trading_thread.start()
 
-#IB_insync setup
+# IB_insync setup
 ib_app = IB()
 ib_app.connect(host='127.0.0.1', port=7497, clientId=1)
 
@@ -196,6 +202,35 @@ class ContractDetails(db.Model):
 
     def __repr__(self):
         return '<Contract %r>' % self.sym
+
+
+def predict(train, test, predictors, model):
+    """
+    Train the model on 'train' subset of DataFrame,
+    then predict classification for 'test'.
+    """
+    model.fit(train[predictors], train["Target"])
+    # Probability that Target=1
+    preds = model.predict_proba(test[predictors])[:, 1]
+    # threshold at 0.6, as in your example
+    preds[preds >= 0.6] = 1
+    preds[preds < 0.6] = 0
+    preds = pd.Series(preds, index=test.index, name="Predictions")
+    combined = pd.concat([test["Target"], preds], axis=1)
+    return combined
+
+
+def backtest(data, model, predictors, start=2500, step=250):
+    """
+    Walk-forward backtest: train on [0:i], predict i:(i+step).
+    """
+    all_predictions = []
+    for i in range(start, data.shape[0], step):
+        train = data.iloc[0:i].copy()
+        test = data.iloc[i:(i + step)].copy()
+        predictions = predict(train, test, predictors, model)
+        all_predictions.append(predictions)
+    return pd.concat(all_predictions)
 
 
 @flaskapp.route('/', methods=['post', 'get'])
@@ -246,8 +281,10 @@ def ordering():
                 myorder.action = request.form['actions']
                 myorder.tif, myorder.orderType, myorder.lmtPrice, myorder.totalQuantity = (request.form['tif'],
                                                                                            request.form['orderType'],
-                                                                                           float(request.form['lmtprice']),
-                                                                                           int(request.form['quantity']))
+                                                                                           float(request.form[
+                                                                                                     'lmtprice']),
+                                                                                           int(request.form[
+                                                                                                   'quantity']))
             # helps with setting orders
             myorder.eTradeOnly = ''
             myorder.firmQuoteOnly = ''
@@ -269,19 +306,72 @@ def order_complete():
 @flaskapp.route('/predictions', methods=['POST', 'GET'])
 def predictions():
     if request.method == 'POST':
-        dates, closings, gptfeed = [], [], []
+        dates, opens, highs, lows, closings, volumes = [], [], [], [], [], []
         stock_symbol = ContractDetails.query.order_by(desc(ContractDetails.date_created_)).first().symboll
         with open('History.csv', mode='r') as file:
             raw_data = DictReader(file)
             for line in raw_data:
-                dates.append(line.get('date'))
-                closings.append(line.get('close'))
+                dates.append(line['date'])
+                opens.append(float(line['open']))
+                highs.append(float(line['high']))
+                lows.append(float(line['low']))
+                closings.append(float(line['close']))
+                volumes.append(float(line['volume']))
 
-                gptfeed.append(line.get('date'))
-                gptfeed.append(line.get('close'))
+        # Build DataFrame
+        df = pd.DataFrame({
+            'Date': pd.to_datetime(dates),
+            'Open': opens,
+            'High': highs,
+            'Low': lows,
+            'Close': closings,
+            'Volume': volumes
+        })
+        df.sort_values('Date', inplace=True)
+        df.set_index('Date', inplace=True)
+        # Step 2) Prepare ML features
+        df['Tomorrow'] = df['Close'].shift(-1)
+        df['Target'] = (df['Tomorrow'] > df['Close']).astype(int)
+        print('here')
 
-        personalized_dates = []
-        personalized_data = []
+        # Rolling features
+        horizons = [2, 5, 60, 250, 1000]
+        new_predictors = ['Open', 'High', 'Low', 'Close', 'Volume']
+        for horizon in horizons:
+            rolling_averages = df[['Open', 'High', 'Low', 'Close', 'Volume']].rolling(horizon).mean()
+
+            ratio_column = f"Close_Ratio_{horizon}"
+            df[ratio_column] = df['Close'] / rolling_averages['Close']
+
+            trend_column = f"Trend_{horizon}"
+            df[trend_column] = df['Target'].shift(1).rolling(horizon).sum()
+
+            new_predictors += [ratio_column, trend_column]
+
+        df.dropna(inplace=True)
+
+        # 4) Split into Train (80%), Validation (19%), Test (last row)
+        split_index = int(0.8 * len(df))  # 80% of the data
+        train = df.iloc[:split_index]
+        val = df.iloc[split_index:-1]
+        test = df.iloc[-1:]  # single row = "tomorrow"
+
+        # 5) Fit on training set only
+        model = RandomForestClassifier(n_estimators=200,
+                                       min_samples_split=50,
+                                       random_state=1)
+        model.fit(train[new_predictors], train["Target"])
+
+        # 6) Evaluate on the validation set
+        val_preds = model.predict(val[new_predictors])
+        val_precision = precision_score(val["Target"], val_preds)
+        print(f"Precision on validation set: {val_precision}")
+
+        # 7) Predict the final day's outcome => "tomorrow"
+        prob_up = model.predict_proba(test[new_predictors])[:, 1][0]
+        next_day_prediction = "Up" if prob_up >= 0.5 else "Down"
+        print(f"Next-day prediction (final row) = {next_day_prediction}")
+
         if request.form['length'] == '1W':
             personalized_dates = dates[-7:]
             personalized_data = closings[-7:]
@@ -299,44 +389,15 @@ def predictions():
             personalized_data = closings[-365:]
 
         elif request.form['length'] == '2Y':
-            personalized_dates = dates
-            personalized_data = closings
+            personalized_dates = dates[-750:]
+            personalized_data = closings[-750:]
 
         else:
             return render_template("predictions.html")
 
-        gpt_dates = dates[-20:]
-        first_half_closing = closings[-20:]
-
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[{"role": "user",
-                       "content": f"""
-                       Use the python list of closing prices for {stock_symbol}, with the format [date, price], and to 
-                       your capabilities and the current events of the world applicable to the stock,
-                       return 1 python string back of the stock price predictions for the next 7 days. The string should 
-                       have the dates first and the other half of the string has the corresponding closing price. Format:
-                       
-                       date1,date2,date3,date4,date5,date6,date7,price1,price2,price3,price4,price5,price6,price7.
-                       
-                       Only return 1 string in this format without any extra words, symbols, parentheses, quotes or spaces.
-                       Make sure to have any spikes in price or dips if applicable.
-                       {str(gptfeed)}
-                       """ }],
-            stream=False
-        )
-        gpt_content = response.choices[0].message.content.split(',')
-        gpt_dates += gpt_content[:7]
-        second_half = [first_half_closing[-1]]
-        second_half += gpt_content[7:]
-
-        projected = {gpt_dates[19]: second_half[0], gpt_dates[20]: second_half[1], gpt_dates[21]: second_half[2],
-                     gpt_dates[22]: second_half[3], gpt_dates[23]: second_half[4], gpt_dates[24]: second_half[5],
-                     gpt_dates[25]: second_half[6], gpt_dates[26]: second_half[7]}
-
         return render_template('predictions_completion.html',
                                symbol=stock_symbol, personaldates=personalized_dates, personaldata=personalized_data,
-                               gptdates=gpt_dates, halfclose=first_half_closing, projected=projected)
+                               next_day_prediction=next_day_prediction)
 
     return render_template("predictions.html")
 
@@ -350,28 +411,34 @@ if __name__ == "__main__":
     with flaskapp.app_context():
         # creates the database
         db.create_all()
+
         # Writing Data To File Loop
         # When first creating the database, comment out all lines lower and then after creation rerun with bottom lines
-        while true:
+        print('here')
+        while True:
+            print('here2')
             current_id = ContractDetails.query.order_by(desc(ContractDetails.date_created_)).first().id_
-            while true:
+            while True:
+                print('here3')
                 if current_id != ContractDetails.query.order_by(desc(ContractDetails.date_created_)).first().id_:
                     con = ContractDetails.query.order_by(desc(ContractDetails.date_created_)).first()
+                    print('jere')
                     main_contract = Stock(con.symboll, con.pexchangee, con.currencyy)
                     ib_app.qualifyContracts(main_contract)
                     hist = ib_app.reqHistoricalData(main_contract, '',
-                                                    barSizeSetting='1 day', durationStr='2 Y',
+                                                    barSizeSetting='1 day', durationStr='10 Y',
                                                     whatToShow='TRADES', useRTH=True)
+                    print('here')
                     time.sleep(4)
                     break
                 time.sleep(5)
             data = []
             for row in hist:
-                data.append({'date': str(row.date), 'close': row.close})
+                data.append({'date': str(row.date),'open': row.open, 'high': row.high, 'low': row.low,
+                             'close': row.close, 'volume': row.volume})
             with open('History.csv', 'w', newline='') as csvfile:
-                fieldnames = ['date', 'close']
+                fieldnames = ['date', 'open', 'high', 'low', 'close', 'volume']
                 writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
                 writer.writeheader()
                 writer.writerows(data)
-            time.sleep(20)
-
+            time.sleep(10)
