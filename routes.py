@@ -1,4 +1,5 @@
 """
+V2.0.1
 This piece of code was used in StockUp to control the web application framework and direct information to different
 website pages. Flask was used as the application framework, and the user data, historical data were brought through to
 the pages that displayed it to the user.
